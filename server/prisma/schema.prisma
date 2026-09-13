@@ -1,0 +1,109 @@
+// Sổ Văn Bản Đi — schema dữ liệu
+// Quy ước: tên field tiếng Anh không dấu, comment tiếng Việt giải thích nghiệp vụ.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN   // Toàn quyền + quản trị người dùng
+  VANTHU  // Nhập/sửa văn bản đi
+  TRACUU  // Chỉ tra cứu, không sửa
+}
+
+enum DocType {
+  CONG_VAN        // Công văn
+  CONG_DIEN       // Công điện
+  QUYET_DINH      // Quyết định
+  CHI_THI         // Chỉ thị
+  BAO_CAO         // Báo cáo
+  THONG_BAO       // Thông báo
+  HO_NGHI         // Hỏng nghị / Họp nghị
+  GIOI_THIEU      // Giới thiệu
+  KHAC            // Khác
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  username  String   @unique
+  password  String   // bcrypt hash
+  fullName  String   // Họ tên hiển thị
+  role      Role     @default(TRACUU)
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  documents Document[]  @relation("NguoiTao")
+  auditLogs AuditLog[]  @relation("NguoiThucHien")
+
+  @@map("users")
+}
+
+model Document {
+  id           Int      @id @default(autoincrement())
+  soVaoSo      Int      // Số vào sổ — duy nhất theo năm
+  nam          Int      // Năm đăng ký (so sánh với YearCounter.nam)
+  loaiVB       DocType  @default(CONG_VAN)
+  soKyHieu     String   // VD: 145/2026/CV-ABC (ghép tự động theo mẫu)
+  ngayBanHanh  DateTime @db.Date
+  nguoiKy      String   // Người ký / Người ban hành
+  trichYeu     String   // Trích yếu nội dung
+  noiNhan      String   // Nơi nhận / đơn vị nhận
+  soBan        Int      @default(1) // Số bản phát hành
+  ghiChu       String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  nguoiTaoId   Int
+  nguoiTao     User     @relation("NguoiTao", fields: [nguoiTaoId], references: [id])
+
+  attachments  Attachment[]
+  auditLogs    AuditLog[]
+
+  @@unique([soVaoSo, nam]) // Chống trùng số vào sổ trong cùng năm
+  @@index([nam, soVaoSo])
+  @@index([ngayBanHanh])
+  @@index([trichYeu])
+  @@map("documents")
+}
+
+model Attachment {
+  id         Int      @id @default(autoincrement())
+  documentId Int
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  fileName   String   // Tên gốc khi upload
+  storedName String   // Tên lưu trên đĩa (uuid + ext)
+  size       Int      // bytes
+  mime       String
+  createdAt  DateTime @default(now())
+
+  @@index([documentId])
+  @@map("attachments")
+}
+
+model AuditLog {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      User     @relation("NguoiThucHien", fields: [userId], references: [id])
+  action    String   // CREATE | UPDATE | DELETE | LOGIN | IMPORT | EXPORT | RESTORE
+  entity    String   // "Document" | "User" | ...
+  entityId  Int?
+  detail    String?  // Mô tả ngắn, VD "Sửa VB số 145/2026/CV-ABC"
+  documentId Int?    // Liên kết văn bản liên quan (LOGIN/EXPORT không có)
+  document  Document? @relation(fields: [documentId], references: [id])
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+// Bộ đếm đánh số vào sổ theo năm — cấp số nguyên tố (tránh trùng khi nhập song song)
+model YearCounter {
+  nam  Int @id
+  last Int @default(0) // Số vào sổ lớn nhất đã cấp trong năm
+  @@map("year_counters")
+}

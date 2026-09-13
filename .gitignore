@@ -1,0 +1,23 @@
+node_modules/
+dist/
+build/
+.vite/
+coverage/
+
+# Môi trường / bí mật
+.env
+.env.*
+!.env.example
+
+# Dữ liệu chạy thử / tải lên
+uploads/
+server/uploads/
+backups/
+*.sql.gz
+*.tar.gz
+
+# Hệ thống / IDE
+*.log
+.DS_Store
+.idea/
+.vscode/

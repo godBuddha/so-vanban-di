@@ -1,0 +1,89 @@
+# Production — docker compose -f docker-compose.prod.yml up -d --build
+services:
+  # Cổng duy nhất ra Internet: reverse proxy + SSL tự động qua Cloudflare DNS
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp" # HTTP/3
+    environment:
+      DOMAIN: ${DOMAIN}
+      ACME_EMAIL: ${ACME_EMAIL}
+      CF_DNS_API_TOKEN: ${CF_DNS_API_TOKEN}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - app
+    networks: [edge, internal]
+
+  # Ứng dụng: API + frontend static
+  app:
+    build: .
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
+      UNIT_ABBR: ${UNIT_ABBR}
+      UNIT_NAME: ${UNIT_NAME}
+      NODE_ENV: production
+      PORT: 3000
+      UPLOAD_DIR: /data/uploads
+    volumes:
+      - uploads:/data/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks: [internal]
+
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 5s
+      retries: 10
+    networks: [internal]
+    # KHÔNG mở port ra ngoài — chỉ app truy cập được
+
+  # Sao lưu tự động mỗi ngày 02:00 (giữ 30 bản gần nhất)
+  backup:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      UPLOADS_DIR: /uploads-src
+      BACKUP_DIR: /backups
+      KEEP_DAYS: "30"
+    volumes:
+      - ./scripts:/scripts:ro # mount thư mục (không mount từng file — tránh giữ inode cũ khi sửa script)
+      - backups:/backups
+      - uploads:/uploads-src:ro
+    entrypoint: ["sh", "/scripts/backup.sh"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks: [internal]
+
+volumes:
+  pgdata:
+  uploads:
+  backups:
+  caddy_data:
+  caddy_config:
+
+networks:
+  edge:      # caddy ↔ internet
+  internal:  # app ↔ postgres ↔ backup (cô lập, không ra ngoài)

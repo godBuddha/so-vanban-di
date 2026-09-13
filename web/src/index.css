@@ -1,0 +1,81 @@
+@import "tailwindcss";
+
+/* ====== Chủ đề chung — phong cách cơ quan nhà nước ====== */
+@theme {
+  --color-primary-50: #eff6ff;
+  --color-primary-100: #dbeafe;
+  --color-primary-200: #bfdbfe;
+  --color-primary-300: #93c5fd;
+  --color-primary-400: #60a5fa;
+  --color-primary-500: #3b82f6;
+  --color-primary-600: #2563eb;
+  --color-primary-700: #1d4ed8;
+  --color-primary-800: #1e40af;
+  --color-primary-900: #1e3a8a;
+
+  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue",
+    Arial, "Noto Sans", sans-serif, "Apple Color Emoji";
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  @apply bg-slate-100 text-slate-800 antialiased;
+  font-family: var(--font-sans);
+}
+
+/* Bảng kiểu sổ giấy: kẻ đầy đủ */
+.table-ledger {
+  @apply w-full border-collapse text-sm;
+}
+.table-ledger th,
+.table-ledger td {
+  @apply border border-slate-400 px-2 py-1.5 align-top;
+}
+.table-ledger thead th {
+  @apply bg-primary-50 font-semibold text-primary-900;
+}
+
+/* Ô nhập liệu chuẩn */
+.input {
+  @apply w-full rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-sm outline-none transition
+    focus:border-primary-500 focus:ring-2 focus:ring-primary-200 disabled:bg-slate-100 disabled:text-slate-500;
+}
+.label {
+  @apply mb-1 block text-sm font-medium text-slate-700;
+}
+.btn {
+  @apply inline-flex items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium
+    transition disabled:cursor-not-allowed disabled:opacity-60;
+}
+.btn-primary {
+  @apply inline-flex items-center justify-center gap-1.5 rounded-md bg-primary-800 px-3 py-1.5 text-sm font-medium
+    text-white transition hover:bg-primary-900 disabled:cursor-not-allowed disabled:opacity-60;
+}
+.btn-secondary {
+  @apply inline-flex items-center justify-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 py-1.5
+    text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60;
+}
+.btn-danger {
+  @apply inline-flex items-center justify-center gap-1.5 rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium
+    text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60;
+}
+.badge {
+  @apply inline-block whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium;
+}
+
+/* Thanh cuộn mảnh */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  @apply rounded-full bg-slate-300;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}

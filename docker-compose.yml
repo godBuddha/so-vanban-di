@@ -1,0 +1,19 @@
+# Dev environment — chỉ cần Postgres; backend/frontend chạy bằng npm run dev bên ngoài
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-vanban}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-vanban_dev}
+      POSTGRES_DB: ${POSTGRES_DB:-vanban}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata_dev:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-vanban}"]
+      interval: 5s
+      retries: 10
+
+volumes:
+  pgdata_dev:
