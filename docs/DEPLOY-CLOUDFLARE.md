@@ -92,6 +92,68 @@ Mở `https://vanban.congty.vn`, đăng nhập `admin / Admin@123` → **đổi 
 
 ---
 
+## Dịch vụ bổ sung
+
+### OCR (nhận dạng chữ tiếng Việt) — tự chạy cùng stack
+
+OCR (PaddleOCR, chạy CPU) được khai báo sẵn trong `docker-compose.prod.yml`, `./scripts/deploy.sh` tự build và bật — không cần thao tác gì thêm. App gọi qua mạng nội bộ `http://ocr:8000` (biến `OCR_URL`), **không mở port ra ngoài**.
+
+> Lần **đầu tiên** container OCR khởi động sẽ tự tải model ~200MB (vài phút, tùy mạng). Xem tiến trình: `docker logs -f so-vanban-di-ocr-1`. Model nằm trong container, các lần khởi động sau dùng lại ngay. Thử tính năng "quét văn bản" với 1 ảnh/PDF công văn.
+>
+> Lưu ý chất lượng: model đa ngôn ngữ gốc của PaddleOCR nhận tốt chữ in tiếng Việt nhưng có thể bỏ một số dấu "ơ/ư" (VD "mời họp" → "mi hop"). Nếu cần chính xác tuyệt đối, thay model rec fine-tuned tiếng Việt bằng biến môi trường `OCR_REC_MODEL` (xem `docker/ocr/main.py`).
+
+### AI local với Ollama (tùy chọn, cần thêm RAM)
+
+```bash
+docker compose -f docker-compose.prod.yml --profile ai up -d
+# Tải 2 model nhẹ phổ biến (tổng RAM chiếm ~8GB):
+docker compose -f docker-compose.prod.yml exec ollama ollama pull bge-m3      # embedding 1024 chiều
+docker compose -f docker-compose.prod.yml exec ollama ollama pull qwen2.5:7b  # hội thoại
+```
+
+Ollama **không mở port ra ngoài** — app gọi qua mạng nội bộ `http://ollama:11434` (biến `OLLAMA_BASE_URL`). Sau khi tải model, vào **Quản trị → Trợ lý AI** trong giao diện để cấu hình provider. API key của AI provider đám mây (OpenAI/Gemini...) cũng nhập tại đó — **không đặt key trong .env**.
+
+### Giám sát với Uptime Kuma (tùy chọn)
+
+```bash
+docker compose -f docker-compose.prod.yml --profile monitor up -d
+```
+
+Port 3001 chỉ **bind 127.0.0.1** trên VPS (không ra Internet). Truy cập qua SSH tunnel từ máy mình:
+
+```bash
+ssh -L 3001:127.0.0.1:3001 root@<IP VPS>
+# rồi mở trên trình duyệt máy cá nhân: http://127.0.0.1:3001
+```
+
+Lần đầu vào, Uptime Kuma yêu cầu tạo tài khoản admin (chỉ nằm trong VPS). Sau đó thêm monitor mới:
+
+- Type: **HTTP(s)** · URL: `https://<tên-miền>/api/health` · chu kỳ 60s.
+- Nên bật thêm thông báo (Telegram/email) để nhận cảnh báo khi app sập.
+
+---
+
+## Nâng cấp từ bản cũ (v1.0.0 → mới)
+
+Bản mới cần PostgreSQL có extension **pgvector** (cho cột vector/embedding). Image Postgres trong compose đã đổi sang `pgvector/pgvector:pg16` — extension sẽ do migration của backend tự tạo (`CREATE EXTENSION vector`), **không cần làm gì thêm trong compose**. Dữ liệu nằm trong volume `pgdata`, giữ nguyên khi đổi image.
+
+Lệnh nâng cấp an toàn (chạy lần lượt tại thư mục dự án trên VPS):
+
+```bash
+# 1. Sao lưu trước khi đụng gì cả (tạo bản .sql.gz + .tar.gz trong volume backups)
+docker compose -f docker-compose.prod.yml exec backup sh /scripts/backup.sh --once
+
+# 2. Tải image postgres mới (tag đổi sang pgvector/pgvector:pg16)
+docker compose -f docker-compose.prod.yml pull postgres
+
+# 3. Lên container postgres mới — dữ liệu volume giữ nguyên, app tự migrate
+docker compose -f docker-compose.prod.yml up -d postgres && ./scripts/deploy.sh
+```
+
+> Nếu `pull` báo không có image `postgres:16-alpine` cũ trong cache cũng không sao — compose chỉ cần image mới. Muốn kiểm tra extension đã bật: `docker compose -f docker-compose.prod.yml exec postgres psql -U ${POSTGRES_USER} -c "\dx"` → phải thấy dòng `vector`.
+
+---
+
 ## Vận hành hằng ngày
 
 | Việc | Lệnh |
@@ -116,6 +178,10 @@ Mở `https://vanban.congty.vn`, đăng nhập `admin / Admin@123` → **đổi 
 
 ## Yêu cầu tối thiểu tổng hợp
 
-- VPS: 2 vCPU / 4GB RAM / 40GB SSD, Ubuntu 24.04, mở port 80 + 443
+| Mức | RAM | Ghi chú |
+|---|---|---|
+| Cơ bản (app + OCR + Caddy + Postgres) | **4GB** | 2 vCPU / 40GB SSD, Ubuntu 24.04, mở port 80 + 443 |
+| Thêm AI local (Ollama: bge-m3 + qwen2.5:7b) | **8GB** | bật profile `ai`; chỉ dùng AI đám mây thì không cần |
+
 - Tên miền đã đưa lên Cloudflare, record A trỏ IP VPS, proxy bật, SSL Full (strict)
 - Cloudflare API Token quyền `Zone → DNS → Edit`

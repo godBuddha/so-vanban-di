@@ -100,3 +100,21 @@ Ghi log cho: LOGIN, CREATE, UPDATE, DELETE, IMPORT, EXPORT, UPLOAD, ATTACHMENT_D
   - `KY_HIEU_LOAI`: CV (công văn), CĐ (công điện), QĐ (quyết định), CT (chỉ thị), BC (báo cáo), TB (thông báo), HN (hỏng nghị), GT (giới thiệu), VB (khác).
   - `VIET_TAT_DON_VI` đọc từ biến môi trường `UNIT_ABBR` (cấu hình theo cơ quan).
   - Người dùng vẫn được phép sửa `soKyHieu` thủ công trước khi lưu (điền trước khi in).
+
+## AI (từ v1.0.1)
+
+Chi tiết cấu hình xem `docs/AI.md`. Mọi endpoint yêu cầu đăng nhập; cấu hình provider/key nằm trong DB (bảng `AiConfig`), chỉnh qua giao diện ADMIN.
+
+| Method | Path | Ai được gọi | Mô tả |
+|---|---|---|---|
+| GET | `/health` | Không cần auth | `{ok, uptime}` — cho healthcheck Docker / Uptime Kuma |
+| POST | `/ai/ocr` | Mọi vai trò | Multipart `file` (JPG/PNG/PDF ≤20MB) → `{text}` — proxy sang dịch vụ PaddleOCR, không phụ thuộc AI provider |
+| POST | `/ai/ocr-extract` | VANTHU, ADMIN | Như trên + LLM trích `{text, fields: {soKyHieu, ngayBanHanh, nguoiKy, trichYeu, noiNhan, loaiVB} \| null}` — LLM lỗi thì `fields=null` (an toàn) |
+| POST | `/ai/search` | Mọi vai trò | `{q, topK?=10}` — embedding câu hỏi, pgvector cosine, (tuỳ chọn) rerank → `{results: [{documentId, soVaoSo, soKyHieu, trichYeu, ngayBanHanh, score, snippet}]}` |
+| POST | `/ai/chat` | Mọi vai trò | `{messages}` → **SSE**: `data {"type":"sources","sources":[…]}` → `data {"type":"delta","text"}` ×N → `data {"type":"done"}`; lỗi giữa stream: `{"type":"error","message"}` |
+| GET | `/admin/ai/config` | ADMIN | Cấu hình hiện tại (apiKey mask `••••`) — shape `{data: …}` |
+| PUT | `/admin/ai/config` | ADMIN | Cập nhật từng trường optional; gửi lại mask → giữ key cũ; key không ghi ra audit |
+| GET | `/admin/ai/status` | ADMIN | `{ocr: {status,url}, chat, embed, rerank, chunks, documents, indexedDocs}` |
+| POST | `/admin/ai/reindex` | ADMIN | `{documentId?}` — embed lại (batch 16, chunk ≤800 ký tự) → `{indexed, chunks}` |
+
+Lỗi chung: chưa cấu hình → `400 {"error":"Chưa cấu hình AI: hãy yêu cầu quản trị viên cấu hình trong Quản trị → Trợ lý AI"}`. Tạo/sửa văn bản tự index ngầm (fire-and-forget, lỗi AI không ảnh hưởng nhập sổ).

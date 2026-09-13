@@ -63,6 +63,7 @@ model Document {
 
   attachments  Attachment[]
   auditLogs    AuditLog[]
+  chunks       DocumentChunk[] // Các đoạn vector dùng cho AI tra cứu
 
   @@unique([soVaoSo, nam]) // Chống trùng số vào sổ trong cùng năm
   @@index([nam, soVaoSo])
@@ -106,4 +107,37 @@ model YearCounter {
   nam  Int @id
   last Int @default(0) // Số vào sổ lớn nhất đã cấp trong năm
   @@map("year_counters")
+}
+
+// Cấu hình AI — singleton (luôn duy nhất dòng id=1)
+// Hỗ trợ chat: Ollama local hoặc OpenAI-compatible; embed: Ollama/OpenAI;
+// rerank: OpenAI-compatible (Jina/SiliconFlow); OCR: dịch vụ PaddleOCR riêng.
+model AiConfig {
+  id            Int      @id @default(1)
+  chatProvider  String   @default("none") // "none" | "ollama" | "openai"
+  ollamaBaseUrl String?  // VD: http://ollama:11434
+  openaiBaseUrl String?  // VD: https://api.openai.com
+  openaiApiKey  String?  // Khóa API OpenAI-compatible (không ghi ra audit)
+  chatModel     String?  // VD: qwen2.5:7b / gpt-4o-mini
+  embedProvider String   @default("none") // "none" | "ollama" | "openai"
+  embedModel    String?  // VD: nomic-embed-text / text-embedding-3-small
+  rerankProvider String  @default("none") // "none" | "openai"
+  rerankBaseUrl String?  // VD: https://api.jina.ai
+  rerankApiKey  String?  // Khóa API rerank
+  rerankModel   String?  // VD: jina-reranker-v2-base-multilingual
+  ocrUrl        String   @default("http://ocr:8000") // Dịch vụ PaddleOCR
+  updatedAt     DateTime @updatedAt
+}
+
+// Đoạn văn bản đã nhúng vector cho tra cứu ngữ nghĩa (pgvector, không index — quét exact)
+// Cột "embedding" tạo bằng tay trong migration (Prisma không sinh SQL cho Unsupported).
+model DocumentChunk {
+  id         Int      @id @default(autoincrement())
+  documentId Int
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  content    String   @db.Text // Nội dung đoạn (dùng làm snippet + rerank)
+  embedding  Unsupported("vector")? // vector không typmod — đọc/ghi qua raw SQL
+  createdAt  DateTime @default(now())
+
+  @@index([documentId])
 }

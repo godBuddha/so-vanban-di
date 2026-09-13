@@ -15,6 +15,8 @@ import importRoutes from './routes/import.routes.js';
 import exportRoutes from './routes/export.routes.js';
 import userRoutes from './routes/users.routes.js';
 import auditLogRoutes from './routes/audit-logs.routes.js';
+import aiRoutes from './routes/ai.routes.js';
+import adminAiRoutes from './routes/admin-ai.routes.js';
 
 export async function buildApp(): Promise<FastifyInstance> {
   const app = Fastify({
@@ -95,6 +97,9 @@ export async function buildApp(): Promise<FastifyInstance> {
   }
 
   // ===== Routes dưới prefix /api =====
+  // GET /api/health — healthcheck Docker/Uptime Kuma (không cần đăng nhập)
+  app.get('/api/health', async () => ({ ok: true, uptime: process.uptime() }));
+
   await app.register(authRoutes, { prefix: '/api/auth' });
   await app.register(documentRoutes, { prefix: '/api/documents' });
   await app.register(attachmentRoutes, { prefix: '/api' });
@@ -102,6 +107,8 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(exportRoutes, { prefix: '/api/export' });
   await app.register(userRoutes, { prefix: '/api/users' });
   await app.register(auditLogRoutes, { prefix: '/api/audit-logs' });
+  await app.register(aiRoutes, { prefix: '/api' });
+  await app.register(adminAiRoutes, { prefix: '/api/admin/ai' });
 
   return app;
 }

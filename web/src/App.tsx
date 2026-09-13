@@ -8,6 +8,8 @@ import { PrintPage } from '@/pages/PrintPage'
 import { ImportExcelPage } from '@/pages/ImportExcelPage'
 import { AdminPage } from '@/pages/AdminPage'
 import { AuditPage } from '@/pages/AuditPage'
+import { TroLyAiPage } from '@/pages/TroLyAi'
+import { AdminAiPage } from '@/pages/AdminAi'
 import type { Role } from '@/lib/docTypes'
 import type { ReactNode } from 'react'
 
@@ -46,6 +48,7 @@ export default function App() {
         <Route path="/" element={<RegisterPage />} />
         <Route path="/tracuu" element={<RegisterPage readonly />} />
         <Route path="/in-so" element={<PrintPage />} />
+        <Route path="/ai-tro-ly" element={<TroLyAiPage />} />
         <Route
           path="/nhap-excel"
           element={
@@ -67,6 +70,14 @@ export default function App() {
           element={
             <RequireRole roles={['ADMIN']}>
               <AuditPage />
+            </RequireRole>
+          }
+        />
+        <Route
+          path="/admin/ai"
+          element={
+            <RequireRole roles={['ADMIN']}>
+              <AdminAiPage />
             </RequireRole>
           }
         />

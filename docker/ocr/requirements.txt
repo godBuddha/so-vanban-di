@@ -1,0 +1,17 @@
+# Combo cho OCR tiếng Việt (CPU):
+#   paddlepaddle 3.2.0 + paddleocr 3.7.0 — cặp phiên bản tương thích, đừng nâng riêng từng cái.
+# Lý do: paddleocr 2.7.x chỉ có từ điển latin 185 ký tự KHÔNG dấu tiếng Việt;
+# PP-OCRv5 multilingual (3.2) cũng lệch dấu nhiều. PP-OCRv6 (3.7) là 1 model
+# đa ngôn ngữ 50 thứ tự gồm tiếng Việt → nhận đúng dấu thanh "CÔNG VĂN, mời họp".
+# Lưu ý: model PP-OCRv6 cần paddlepaddle >= 3.2 (với 3.0.0 sẽ lỗi PIR "strides").
+paddlepaddle==3.2.0
+paddleocr==3.7.0
+
+# REST API
+fastapi==0.115.14
+uvicorn[standard]==0.30.6
+python-multipart==0.0.20
+
+# Xử lý ảnh + PDF (PDF -> ảnh cần poppler-utils trong image)
+pillow==10.4.0
+pdf2image==1.17.0

@@ -1,6 +1,15 @@
 // ===== Form nhập / sửa văn bản đi (modal) =====
-import { useEffect, useState } from 'react'
-import { createDocument, errorMessage, nextNumber, updateDocument, uploadAttachments, type DocumentInput } from '@/lib/api'
+import { useEffect, useRef, useState } from 'react'
+import {
+  aiOcrExtract,
+  createDocument,
+  errorMessage,
+  nextNumber,
+  updateDocument,
+  uploadAttachments,
+  type DocumentInput,
+  type OcrExtractFields,
+} from '@/lib/api'
 import { ALL_DOC_TYPES, DOC_TYPE_LABELS } from '@/lib/docTypes'
 import type { DocumentDTO } from '@/lib/types'
 import { Modal } from '@/components/ui'
@@ -9,6 +18,7 @@ import { useToast } from '@/components/Toast'
 const MAX_FILE_MB = 20
 const MAX_FILES = 5
 const ACCEPT = '.pdf,.doc,.docx,.jpg,.jpeg,.png'
+const OCR_ACCEPT = 'image/*,application/pdf'
 
 interface Props {
   open: boolean
@@ -54,6 +64,8 @@ export function DocumentForm({ open, onClose, editing, defaultNam, onSaved }: Pr
   const [nextSymbol, setNextSymbol] = useState('')
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [saving, setSaving] = useState(false)
+  const [ocrBusy, setOcrBusy] = useState(false)
+  const ocrFileRef = useRef<HTMLInputElement>(null)
 
   // Nạp dữ liệu khi mở modal
   useEffect(() => {
@@ -122,6 +134,144 @@ export function DocumentForm({ open, onClose, editing, defaultNam, onSaved }: Pr
     setFiles((prev) => [...prev, ...Array.from(list)].slice(0, MAX_FILES))
   }
 
+  // ===== OCR: nhận dạng trường thông tin từ ảnh/PDF văn bản =====
+  /** Nhãn tiếng Việt của từng trường OCR (dùng trong toast tóm tắt) */
+  const OCR_FIELD_LABELS: Record<keyof OcrExtractFields, string> = {
+    soKyHieu: 'số ký hiệu',
+    ngayBanHanh: 'ngày ban hành',
+    nguoiKy: 'người ký',
+    trichYeu: 'trích yếu',
+    noiNhan: 'nơi nhận',
+    loaiVb: 'loại văn bản',
+  }
+
+  /** Chuẩn hoá loại văn bản OCR ("công văn"…) về đúng enum ("CONG_VAN"…) */
+  function matchDocType(raw: string): string | null {
+    const norm = raw
+      .trim()
+      .toLowerCase()
+      .replace(/[àáạảãâầấậẩẫăằắặẳẵ]/g, 'a')
+      .replace(/[èéẹẻẽêềếệểễ]/g, 'e')
+      .replace(/[ìíịỉĩ]/g, 'i')
+      .replace(/[òóọỏõôồốộổỗơờớợởỡ]/g, 'o')
+      .replace(/[ùúụủũưừứựửữ]/g, 'u')
+      .replace(/[ỳýỵỷỹ]/g, 'y')
+      .replace(/đ/g, 'd')
+      .replace(/\s+/g, ' ')
+    const direct = ALL_DOC_TYPES.find((t) => DOC_TYPE_LABELS[t].toLowerCase() === norm)
+    if (direct) return direct
+    const aliases: Record<string, string> = {
+      'cong van': 'CONG_VAN',
+      'cong dien': 'CONG_DIEN',
+      'quyet dinh': 'QUYET_DINH',
+      'chi thi': 'CHI_THI',
+      'bao cao': 'BAO_CAO',
+      'thong bao': 'THONG_BAO',
+      'hop nghi': 'HO_NGHI',
+      'hoi nghi': 'HO_NGHI',
+      'gioi thieu': 'GIOI_THIEU',
+      'giay gioi thieu': 'GIOI_THIEU',
+      khac: 'KHAC',
+    }
+    return aliases[norm] ?? null
+  }
+
+  function normalizeDate(raw: string): string | null {
+    const s = raw.trim()
+    // dd/mm/yyyy hoặc dd-mm-yyyy
+    const m = s.match(/^(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{4})$/)
+    if (m) {
+      const dd = m[1].padStart(2, '0')
+      const mm = m[2].padStart(2, '0')
+      return `${m[3]}-${mm}-${dd}`
+    }
+    // yyyy-mm-dd
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s
+    return null
+  }
+
+  async function handleOcrFile(file: File) {
+    setOcrBusy(true)
+    try {
+      const res = await aiOcrExtract(file)
+      const fields = res?.fields
+      if (!fields || Object.keys(fields).length === 0) {
+        // Không bóc tách được trường nào — vẫn đính kèm file để dùng về sau
+        setFiles((prev) => (prev.includes(file) ? prev : [...prev, file].slice(0, MAX_FILES)))
+        toast.info('Không nhận dạng được trường thông tin nào. File đã được đính kèm, bạn nhập tay các ô phía dưới.')
+        return
+      }
+
+      const filledKeys: (keyof OcrExtractFields)[] = []
+      let overwrote = false
+
+      // Ưu tiên điền ô trống; ô có sẵn chỉ điền đè khi người dùng đồng ý (confirm đơn giản)
+      for (const [key, rawValue] of Object.entries(fields) as [keyof OcrExtractFields, string | undefined][]) {
+        let value = (rawValue ?? '').trim()
+        if (!value) continue
+
+        if (key === 'loaiVb') {
+          const matched = matchDocType(value)
+          if (!matched) continue
+          value = matched
+        }
+        if (key === 'ngayBanHanh') {
+          const normalized = normalizeDate(value)
+          if (!normalized) continue
+          value = normalized
+        }
+
+        // Tên trường của form khác key OCR ở chỗ "loaiVb" → "loaiVB"
+        const formKey = (key === 'loaiVb' ? 'loaiVB' : key) as keyof FormState
+        const current = form[formKey]
+        const isBusy = current !== undefined && String(current).trim() !== ''
+        if (isBusy) {
+          if (String(current) === value) continue // trùng nội dung → không cần hỏi
+          const ok = window.confirm(
+            `OCR nhận dạng được "${OCR_FIELD_LABELS[key]}": "${value}".\nÔ hiện đang có: "${String(current)}".\n\nGhi đè bằng kết quả OCR?`,
+          )
+          if (!ok) continue
+          overwrote = true
+        }
+        set(formKey, value)
+        filledKeys.push(key)
+      }
+
+      // Luôn đính kèm file đã nhận dạng vào danh sách file upload
+      setFiles((prev) => (prev.includes(file) ? prev : [...prev, file].slice(0, MAX_FILES)))
+
+      const summary = filledKeys.map((k) => OCR_FIELD_LABELS[k]).join(', ')
+      if (filledKeys.length > 0) {
+        toast.success(`Đã nhận dạng: ${summary}.${overwrote ? ' (có ghi đè ô có sẵn)' : ''} File đã được đính kèm.`)
+      } else {
+        toast.info('Kết quả OCR trùng với nội dung đang có. File đã được đính kèm.')
+      }
+      setErrors((e) => ({ ...e, ...clearFieldErrors(filledKeys) }))
+    } catch (e) {
+      toast.error(errorMessage(e))
+    } finally {
+      setOcrBusy(false)
+    }
+  }
+
+  /** Xoá lỗi validate của các ô vừa được OCR điền */
+  function clearFieldErrors(keys: (keyof OcrExtractFields)[]): Record<string, string> {
+    const fieldToError: Partial<Record<keyof OcrExtractFields, string>> = {
+      soKyHieu: 'soKyHieu',
+      ngayBanHanh: 'ngayBanHanh',
+      nguoiKy: 'nguoiKy',
+      trichYeu: 'trichYeu',
+      noiNhan: 'noiNhan',
+      loaiVb: 'loaiVB',
+    }
+    const next: Record<string, string> = {}
+    for (const k of keys) {
+      const errKey = fieldToError[k]
+      if (errKey) next[errKey] = ''
+    }
+    return next
+  }
+
   async function submit() {
     if (!validate()) return
     setSaving(true)
@@ -187,6 +337,34 @@ export function DocumentForm({ open, onClose, editing, defaultNam, onSaved }: Pr
           }
         }}
       >
+        {/* ===== Nhận dạng từ ảnh/PDF (OCR) ===== */}
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-dashed border-primary-200 bg-primary-50/60 px-3 py-2.5">
+          <div className="min-w-0 text-xs text-slate-600">
+            <span className="font-medium text-primary-900">Nhận dạng tự động:</span> chọn ảnh/PDF văn bản đi, AI sẽ
+            điền sẵn các ô thông tin và đính kèm file.
+          </div>
+          <button
+            type="button"
+            className="btn-secondary shrink-0"
+            onClick={() => ocrFileRef.current?.click()}
+            disabled={ocrBusy}
+            title="Nhận dạng thông tin văn bản từ ảnh hoặc PDF"
+          >
+            {ocrBusy ? '⏳ Đang nhận dạng…' : '📷 Nhận dạng từ ảnh/PDF'}
+          </button>
+          <input
+            ref={ocrFileRef}
+            type="file"
+            accept={OCR_ACCEPT}
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0]
+              e.target.value = ''
+              if (f) void handleOcrFile(f)
+            }}
+          />
+        </div>
+
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <div>
             <label className="label">Số vào sổ</label>

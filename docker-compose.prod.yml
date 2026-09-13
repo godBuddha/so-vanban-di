@@ -33,15 +33,24 @@ services:
       NODE_ENV: production
       PORT: 3000
       UPLOAD_DIR: /data/uploads
+      OCR_URL: ${OCR_URL:-http://ocr:8000}        # dịch vụ OCR trong mạng nội bộ
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://ollama:11434}
     volumes:
       - uploads:/data/uploads
     depends_on:
       postgres:
         condition: service_healthy
+    healthcheck:
+      # endpoint /api/health do backend phục vụ (busybox wget có sẵn trong node:22-alpine)
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/api/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
     networks: [internal]
 
   postgres:
-    image: postgres:16-alpine
+    image: pgvector/pgvector:pg16 # postgres 16 + extension vector (migration sẽ tự CREATE EXTENSION)
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
@@ -55,6 +64,45 @@ services:
       retries: 10
     networks: [internal]
     # KHÔNG mở port ra ngoài — chỉ app truy cập được
+
+  # OCR: nhận dạng chữ tiếng Việt cho file đính kèm (PaddleOCR CPU)
+  # KHÔNG expose port — app gọi qua mạng nội bộ http://ocr:8000
+  ocr:
+    build: ./docker/ocr
+    restart: unless-stopped
+    healthcheck:
+      # python:3.11-slim không có curl/wget — dùng urllib của python
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=5)\""]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s # lần đầu tải model ~200MB
+    networks: [internal]
+    # Volume không cần: model tải vào container fs, chỉ mất 1 lần
+    # (muốn dùng model OCR khác: đặt env OCR_DET_MODEL / OCR_REC_MODEL cho service này)
+
+  # AI local (tùy chọn): bật bằng `docker compose -f docker-compose.prod.yml --profile ai up -d`
+  # Không expose port — app gọi qua mạng nội bộ http://ollama:11434
+  # Tải model: docker compose -f docker-compose.prod.yml exec ollama ollama pull qwen2.5:7b
+  ollama:
+    image: ollama/ollama
+    restart: unless-stopped
+    profiles: ["ai"]
+    volumes:
+      - ollama_data:/root/.ollama
+    networks: [internal]
+
+  # Giám sát (tùy chọn): Uptime Kuma — bật bằng `--profile monitor up -d`
+  # Chỉ bind 127.0.0.1 để truy cập qua SSH tunnel (xem docs/DEPLOY-CLOUDFLARE.md)
+  uptime-kuma:
+    image: louislam/uptime-kuma
+    restart: unless-stopped
+    profiles: ["monitor"]
+    ports:
+      - "127.0.0.1:3001:3001"
+    volumes:
+      - kuma_data:/app/data
+    networks: [internal]
 
   # Sao lưu tự động mỗi ngày 02:00 (giữ 30 bản gần nhất)
   backup:
@@ -83,7 +131,9 @@ volumes:
   backups:
   caddy_data:
   caddy_config:
+  ollama_data: # model AI local
+  kuma_data:   # dữ liệu Uptime Kuma
 
 networks:
   edge:      # caddy ↔ internet
-  internal:  # app ↔ postgres ↔ backup (cô lập, không ra ngoài)
+  internal:  # app ↔ postgres ↔ ocr ↔ backup (cô lập, không ra ngoài)

@@ -1,8 +1,8 @@
 # Sổ Văn Bản Đi 📒
 
-**Phần mềm mã nguồn mở quản lý sổ văn bản đi** cho cơ quan, doanh nghiệp Việt Nam — thay thế sổ giấy ghi tay bằng hệ thống web: đánh số tự động chống trùng, tra cứu tức thì, in sổ A4 ngang đúng chuẩn lưu hành, xuất Excel, đính kèm file văn bản.
+**Phần mềm mã nguồn mở quản lý sổ văn bản đi** cho cơ quan, doanh nghiệp Việt Nam — thay thế sổ giấy ghi tay bằng hệ thống web: đánh số tự động chống trùng, tra cứu tức thì, in sổ A4 ngang đúng chuẩn lưu hành, xuất Excel, đính kèm file văn bản, **kèm Trợ lý AI (OCR + tìm kiếm ngữ nghĩa + hỏi đáp RAG)**.
 
-> **Bản phát hành: v1.0.0** · Giấy phép MIT · Giao diện tiếng Việt, dùng tốt trên máy tính và điện thoại.
+> **Bản phát hành: v1.0.1** · Giấy phép MIT · Giao diện tiếng Việt, dùng tốt trên máy tính và điện thoại.
 
 ---
 
@@ -21,6 +21,7 @@
 | 9 | **Nhật ký hoạt động** | Ghi lại ai tạo / sửa / xoá văn bản, lúc nào — phục vụ đối chiếu và kiểm tra |
 | 10 | **Bảo mật** | JWT (access 15 phút + refresh 7 ngày), bcrypt, giới hạn 10 lần đăng nhập/phút/IP, đổi mật khẩu tự phục vụ |
 | 11 | **Sao lưu tự động** | `pg_dump` + nén file đính kèm hằng ngày lúc 02:00, giữ 30 bản, khôi phục 1 lệnh |
+| 12 | **🤖 Trợ lý AI** (v1.0.1) | **OCR nhận dạng văn bản** tự điền form nhập · **Tìm kiếm ngữ nghĩa** (RAG: embed + pgvector + rerank kiểu Cherry Studio) · **Hỏi đáp** trả lời dựa trên sổ, kèm nguồn tham chiếu — dùng được cả **Ollama local** (dữ liệu không rời VPS) lẫn **API provider OpenAI-tương-thích** |
 
 ## 🖼 Màn hình giao diện
 
@@ -57,6 +58,23 @@
   <img src="docs/screenshots/09b-mobile-menu.png" width="300" alt="Mobile — menu" />
 </p>
 
+### 🤖 Trợ lý AI (v1.0.1)
+
+#### Hỏi đáp RAG — trả lời kèm nguồn tham chiếu
+![Trợ lý AI — hỏi đáp](docs/screenshots/10-tro-ly-ai-hoi-dap.png)
+
+#### Tìm kiếm ngữ nghĩa (embed + pgvector + rerank)
+![Tìm kiếm ngữ nghĩa](docs/screenshots/10b-tim-kiem-ngu-nghia.png)
+
+#### Cấu hình AI — Ollama local hoặc API provider (ADMIN)
+![Cấu hình AI](docs/screenshots/11-cau-hinh-ai.png)
+
+#### OCR tự điền form nhập từ ảnh/PDF
+![OCR trong form nhập](docs/screenshots/12-form-ocr.png)
+
+#### Trợ lý AI trên điện thoại
+![Trợ lý AI mobile](docs/screenshots/13-mobile-tro-ly-ai.png)
+
 ## 🧱 Kiến trúc & công nghệ
 
 ```
@@ -69,13 +87,17 @@
                                         ┌───────────────────────────────┼──────────────┐
                                         │                               │              │
                                   PostgreSQL 16                    Volume uploads   Container backup
-                                  (Prisma ORM)                     /data/uploads    (pg_dump + tar hằng ngày)
+                                  + pgvector (RAG)                 /data/uploads    (pg_dump + tar hằng ngày)
+                                        │
+                                  Container OCR (PaddleOCR tiếng Việt) · Ollama (tuỳ chọn, profile "ai")
+                                        · Uptime Kuma (tuỳ chọn, profile "monitor")
 ```
 
-- **Backend:** Node.js 22 · Fastify 5 · Prisma 6 + PostgreSQL 16 · JWT · Zod · bcryptjs · exceljs
+- **Backend:** Node.js 22 · Fastify 5 · Prisma 6 + PostgreSQL 16 (pgvector) · JWT · Zod · bcryptjs · exceljs
 - **Frontend:** React 18 · Vite · TypeScript · Tailwind CSS v4 · react-router-dom v7 · react-hot-toast
-- **Triển khai:** Docker Compose (dev + prod) · Caddy 2 (SSL tự động qua Cloudflare DNS-01) · script backup/restore
-- **Mô hình dữ liệu:** `User` · `Document` (unique `[soVaoSo, nam]`) · `Attachment` · `AuditLog` · `YearCounter`
+- **AI (v1.0.1):** PaddleOCR (tiếng Việt, container riêng) · Ollama / API OpenAI-tương-thích · pgvector (embed + rerank kiểu Cherry Studio)
+- **Triển khai:** Docker Compose (dev + prod) · Caddy 2 (SSL tự động qua Cloudflare DNS-01) · script backup/restore · profile `ai` (Ollama) + `monitor` (Uptime Kuma)
+- **Mô hình dữ liệu:** `User` · `Document` (unique `[soVaoSo, nam]`) · `Attachment` · `AuditLog` · `YearCounter` · `AiConfig` · `DocumentChunk` (vector)
 
 ## 🚀 Chạy nhanh (môi trường phát triển)
 
@@ -111,6 +133,7 @@ Bản tóm tắt: VPS 2vCPU/4GB (Ubuntu 24.04) → DNS record A (proxy bật) �
 |---|---|
 | `docs/USER-GUIDE.md` | Hướng dẫn sử dụng cho nhân viên văn thư (nhập sổ, tra cứu, in sổ, Excel, FAQ) |
 | `docs/API.md` | Hợp đồng API đầy đủ cho lập trình viên |
+| `docs/AI.md` | **Cấu hình & sử dụng Trợ lý AI** (Ollama local / API provider / OCR / RAG) |
 | `docs/DEPLOY-CLOUDFLARE.md` | Triển khai production trên VPS + Cloudflare |
 | `scripts/backup.sh` / `restore.sh` | Sao lưu & khôi phục dữ liệu |
 | `scripts/screenshot.mjs` | Chụp lại toàn bộ ảnh màn hình (Playwright + Chrome hệ thống) |

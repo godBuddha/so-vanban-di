@@ -19,7 +19,9 @@ interface MenuItem {
 const MENU: MenuItem[] = [
   { to: '/', icon: '📒', label: 'Sổ văn bản đi' },
   { to: '/tracuu', icon: '🔍', label: 'Tra cứu', roles: ['TRACUU'] },
+  { to: '/ai-tro-ly', icon: '🤖', label: 'Trợ lý AI' },
   { to: '/admin/users', icon: '⚙️', label: 'Quản trị', roles: ['ADMIN'] },
+  { to: '/admin/ai', icon: '🧠', label: 'Cấu hình AI', roles: ['ADMIN'] },
   { to: '/admin/audit', icon: '📜', label: 'Nhật ký', roles: ['ADMIN'] },
 ]
 

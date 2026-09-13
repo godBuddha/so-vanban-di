@@ -12,6 +12,7 @@ import {
   includeDTO,
 } from '../services/documents.service.js';
 import { writeAudit } from '../services/audit.service.js';
+import { indexDocument } from '../services/ai.service.js';
 
 // ---- Zod schemas ----
 const ymd = z
@@ -137,6 +138,8 @@ export default async function documentRoutes(app: FastifyInstance) {
       documentId: doc.id,
       detail: `Thêm VB ${doc.soKyHieu} - V/v ${doc.trichYeu}`,
     });
+    // Đánh chỉ mục AI bất đồng bộ — lỗi AI không được làm hỏng việc nhập sổ
+    void indexDocument(doc.id);
     return reply.code(201).send(toDTO(doc));
   });
 
@@ -173,6 +176,8 @@ export default async function documentRoutes(app: FastifyInstance) {
       documentId: doc.id,
       detail: `Sửa VB ${doc.soKyHieu}`,
     });
+    // Cập nhật lại chỉ mục AI bất đồng bộ sau khi sửa nội dung
+    void indexDocument(doc.id);
     return {
       ...doc,
       ngayBanHanh: doc.ngayBanHanh.toISOString().slice(0, 10),

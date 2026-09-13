@@ -1,7 +1,7 @@
-# Dev environment — chỉ cần Postgres; backend/frontend chạy bằng npm run dev bên ngoài
+# Dev environment — chỉ cần Postgres (kèm pgvector); backend/frontend chạy bằng npm run dev bên ngoài
 services:
   postgres:
-    image: postgres:16-alpine
+    image: pgvector/pgvector:pg16 # postgres 16 + extension vector (bắt buộc cho cột embedding)
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-vanban}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-vanban_dev}
