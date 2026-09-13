@@ -66,8 +66,11 @@
 #### Tìm kiếm ngữ nghĩa (embed + pgvector + rerank)
 ![Tìm kiếm ngữ nghĩa](docs/screenshots/10b-tim-kiem-ngu-nghia.png)
 
-#### Cấu hình AI — Ollama local hoặc API provider (ADMIN)
+#### Cấu hình AI — API provider (Base URL + API key)
 ![Cấu hình AI](docs/screenshots/11-cau-hinh-ai.png)
+
+#### Cấu hình AI — Ollama chạy tại chỗ (URL Ollama)
+![Cấu hình AI Ollama](docs/screenshots/11b-cau-hinh-ai-ollama.png)
 
 #### OCR tự điền form nhập từ ảnh/PDF
 ![OCR trong form nhập](docs/screenshots/12-form-ocr.png)
