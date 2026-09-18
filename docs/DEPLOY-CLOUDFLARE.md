@@ -88,7 +88,9 @@ UNIT_NAME=UBND PHƯỜNG ABC                      # in trên trang sổ
 curl -I https://vanban.congty.vn     # → HTTP/2 200, TLS hợp lệ
 ```
 
-Mở `https://vanban.congty.vn`, đăng nhập `admin / Admin@123` → **đổi mật khẩu ngay** (Quản trị → Người dùng).
+Mở `https://vanban.congty.vn` — lần đầu truy cập, hệ thống **chưa có người dùng** nên sẽ tự chuyển tới trang **Cài đặt ban đầu**: nhập họ tên, tên đăng nhập và mật khẩu quản trị (tối thiểu 8 ký tự) rồi bấm **Tạo tài khoản quản trị**. Trang này tự đóng vĩnh viễn sau khi tạo xong — không có tài khoản admin mặc định nào cả.
+
+Đăng nhập bằng tài khoản vừa tạo để bắt đầu sử dụng; người dùng khác do quản trị viên thêm trong **Quản trị → Người dùng**.
 
 ---
 

@@ -203,6 +203,16 @@ export async function fetchMe(): Promise<AuthUser> {
   return user
 }
 
+// ===== Cài đặt ban đầu (self-host: tự đăng ký admin khi hệ thống còn trống) =====
+
+export function getSetupStatus(signal?: AbortSignal) {
+  return apiGet<{ needed: boolean }>('/api/setup/status', signal)
+}
+
+export function setupAdmin(input: { username: string; password: string; fullName: string }) {
+  return apiPost<{ user: AuthUser }>('/api/setup', input)
+}
+
 // ===== Documents =====
 
 export function buildDocQuery(f: DocumentFilters): string {

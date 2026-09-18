@@ -1,6 +1,6 @@
 {
   "name": "so-vanban-di-server",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Backend API — Sổ Văn Bản Đi (quản lý văn thư cơ quan)",
   "type": "module",
   "main": "dist/src/server.js",

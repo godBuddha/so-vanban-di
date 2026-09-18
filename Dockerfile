@@ -32,5 +32,6 @@ COPY --from=serverbuild /srv/prisma ./prisma
 COPY --from=serverbuild /srv/package.json ./package.json
 COPY --from=webbuild /web/dist ./public
 EXPOSE 3000
-# migrate trước khi bật server; tạo tài khoản admin mặc định nếu DB trống
-CMD ["sh", "-c", "npx prisma migrate deploy && node dist/src/ensureAdmin.js && node dist/src/server.js"]
+# migrate trước khi bật server. Tài khoản quản trị đầu tiên được tự đăng ký
+# qua trang "Cài đặt ban đầu" khi truy cập web lần đầu (không có mật khẩu mặc định).
+CMD ["sh", "-c", "npx prisma migrate deploy && node dist/src/server.js"]

@@ -2,7 +2,7 @@
 
 **Phần mềm mã nguồn mở quản lý sổ văn bản đi** cho cơ quan, doanh nghiệp Việt Nam — thay thế sổ giấy ghi tay bằng hệ thống web: đánh số tự động chống trùng, tra cứu tức thì, in sổ A4 ngang đúng chuẩn lưu hành, xuất Excel, đính kèm file văn bản, **kèm Trợ lý AI (OCR + tìm kiếm ngữ nghĩa + hỏi đáp RAG)**.
 
-> **Bản phát hành: v1.0.1** · Giấy phép MIT · Giao diện tiếng Việt, dùng tốt trên máy tính và điện thoại.
+> **Bản phát hành: v1.0.2** · Giấy phép MIT · Giao diện tiếng Việt, dùng tốt trên máy tính và điện thoại.
 
 ---
 
@@ -22,8 +22,15 @@
 | 10 | **Bảo mật** | JWT (access 15 phút + refresh 7 ngày), bcrypt, giới hạn 10 lần đăng nhập/phút/IP, đổi mật khẩu tự phục vụ |
 | 11 | **Sao lưu tự động** | `pg_dump` + nén file đính kèm hằng ngày lúc 02:00, giữ 30 bản, khôi phục 1 lệnh |
 | 12 | **🤖 Trợ lý AI** (v1.0.1) | **OCR nhận dạng văn bản** tự điền form nhập · **Tìm kiếm ngữ nghĩa** (RAG: embed + pgvector + rerank kiểu Cherry Studio) · **Hỏi đáp** trả lời dựa trên sổ, kèm nguồn tham chiếu — dùng được cả **Ollama local** (dữ liệu không rời VPS) lẫn **API provider OpenAI-tương-thích** |
+| 13 | **Cài đặt ban đầu** (self-host) | Lần đầu truy cập web → tự đăng ký tài khoản quản trị ngay trên trang web; **không có mật khẩu admin mặc định nào trong mã nguồn**; trang tự khoá vĩnh viễn sau khi cài xong. Secret JWT thiếu/giữ placeholder ở production → server **từ chối khởi động**, `deploy.sh` kiểm tra trước khi deploy |
 
 ## 🖼 Màn hình giao diện
+
+### Cài đặt ban đầu (lần đầu truy cập — tự tạo tài khoản quản trị)
+<p>
+  <img src="docs/screenshots/00-cai-dat-ban-dau.png" width="380" alt="Cài đặt ban đầu" />
+  <img src="docs/screenshots/00b-cai-dat-ban-dau-dien.png" width="380" alt="Cài đặt ban đầu — đã điền" />
+</p>
 
 ### Đăng nhập
 ![Đăng nhập](docs/screenshots/01-dang-nhap.png)
@@ -108,19 +115,25 @@ Yêu cầu: Docker + Docker Compose.
 
 ```bash
 cp .env.example .env
-docker compose up --build
-# → Frontend: http://localhost:5173   ·   API: http://localhost:3000/api
+cp server/.env.example server/.env   # DATABASE_URL cho backend chạy bên ngoài Docker
+docker compose up --build            # CSDL dev (postgres 16 + pgvector) tại localhost:5432
+cd server && npm run dev             # API: http://localhost:3000/api
+cd web && npm run dev                # Frontend: http://localhost:5173
 ```
 
-Tài khoản mẫu (tự tạo khi CSDL trống lần đầu):
+Tài khoản mẫu (chỉ khi chạy lệnh `npm run seed` để nhập 50 văn bản giả lập — **môi trường dev**):
 
 | Vai trò | Tài khoản | Mật khẩu |
 |---|---|---|
 | Quản trị | `admin` | `Admin@123` |
 | Văn thư | `vanthu` | `VanThu@123` |
-| Tra cứu | `tracuu` | `TraCuu@123` |
+| Tra cứu | `tracuu` | `Tracuu@123` |
 
-> ⚠️ **Đổi ngay mật khẩu admin** trước khi đưa vào sử dụng thực tế.
+## 🔰 Cài đặt ban đầu (production)
+
+Lần đầu mở trang web, hệ thống **chưa có người dùng** nên tự chuyển tới trang **Cài đặt ban đầu**: người quản trị tự đặt tên đăng nhập + mật khẩu ngay trên web — **không có tài khoản admin mặc định nào nằm trong mã nguồn**. Sau khi tạo xong, trang này tự khoá vĩnh viễn; người dùng khác do quản trị viên thêm trong mục *Quản trị → Người dùng*.
+
+![Cài đặt ban đầu](docs/screenshots/00-cai-dat-ban-dau.png)
 
 ## 🌍 Triển khai production (VPS + Cloudflare)
 

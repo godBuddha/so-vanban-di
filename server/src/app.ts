@@ -9,6 +9,7 @@ import { Prisma } from '@prisma/client';
 import { ZodError } from 'zod';
 
 import authRoutes from './routes/auth.routes.js';
+import setupRoutes from './routes/setup.routes.js';
 import documentRoutes from './routes/documents.routes.js';
 import attachmentRoutes from './routes/attachments.routes.js';
 import importRoutes from './routes/import.routes.js';
@@ -101,6 +102,8 @@ export async function buildApp(): Promise<FastifyInstance> {
   app.get('/api/health', async () => ({ ok: true, uptime: process.uptime() }));
 
   await app.register(authRoutes, { prefix: '/api/auth' });
+  // Cài đặt ban đầu: tự đăng ký admin khi DB trống (khoá vĩnh viễn sau lần đầu)
+  await app.register(setupRoutes, { prefix: '/api/setup' });
   await app.register(documentRoutes, { prefix: '/api/documents' });
   await app.register(attachmentRoutes, { prefix: '/api' });
   await app.register(importRoutes, { prefix: '/api/import' });

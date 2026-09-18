@@ -1,0 +1,16 @@
+# Giữ build context gọn và KHÔNG đưa secret vào các giai đoạn build Docker
+.git
+.gitignore
+**/.env
+**/.env.*
+!**/.env.example
+**/node_modules
+**/dist
+**/uploads
+backups
+docs
+scripts
+Caddyfile
+docker-compose*.yml
+*.md
+LICENSE

@@ -41,6 +41,13 @@ DocumentDTO {
 | GET | `/auth/me` | — | `user` | đã đăng nhập |
 | PATCH | `/auth/password` | `{currentPassword, password}` (tối thiểu 8 ký tự) | `{ok: true}` | đã đăng nhập — đổi mật khẩu cho chính mình, xác minh mật khẩu hiện tại |
 
+## Cài đặt ban đầu
+
+| Method | Path | Body | Phản hồi | Quyền |
+|---|---|---|---|---|
+| GET | `/setup/status` | — | `{needed: boolean}` — `true` khi hệ thống chưa có người dùng nào | công khai (rate-limit 30 lượt/phút/IP) |
+| POST | `/setup` | `{username, password (≥8), fullName}` | `201 {user}` — tạo tài khoản **ADMIN** đầu tiên | công khai **chỉ khi DB còn trống**; sau đó luôn trả `403` (trang cài đặt tự đóng vĩnh viễn, không có mật khẩu admin mặc định) |
+
 ## Documents
 
 | Method | Path | Mô tả | Quyền |

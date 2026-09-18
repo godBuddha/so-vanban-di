@@ -3,6 +3,7 @@ import { FastifyInstance } from 'fastify';
 import { DocType } from '@prisma/client';
 import { z } from 'zod';
 import prisma from '../db.js';
+import { config } from '../config.js';
 import { requireAuth, requireRole } from '../plugins/auth.js';
 import {
   buildWhere,
@@ -201,9 +202,7 @@ export default async function documentRoutes(app: FastifyInstance) {
     // Xoá file trên đĩa trước (schema đã onDelete: Cascade cho DB)
     const { unlink } = await import('node:fs/promises');
     const path = await import('node:path');
-    const uploadDir = path.resolve(
-      process.env.UPLOAD_DIR || (process.env.NODE_ENV === 'production' ? '/data/uploads' : 'uploads'),
-    );
+    const uploadDir = path.resolve(config.uploadDir); // 1 nguồn duy nhất trong config.ts
     await prisma.$transaction(async (tx) => {
       for (const att of existing.attachments) {
         try {
